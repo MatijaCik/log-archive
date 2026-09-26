@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
+# so this part takes how script was called lets say
+# its called from /home/name/scripts/log-archive
+# it removes whole path except name log-archive
+readonly PROGNAME=$(basename "$0")
+readonly VERSION="1.0.0"
+readonly DEFAULT_OUTDIR="${HOME}/"
+
+# Runtime variable (not readonly - set by argument parser)
+INPUTDIR=""
+OUTDIR="$DEFAULT_OUTDIR"
+VERBOSE=false
+usage() {
+local mode="${1:-short}"
+if [[ "$mode" = "full" ]]; then
+ cat <<EOF
+$PROGNAME $VERSION - copress the logs in .tar.gz file and store them in a new directory
+
+USAGE:
+  $PROGNAME [OPTIONS] [SOURCE_DIR] [DEST_DIR]
+
+OPTIONS:
+  -v, --verbose         Print snapshot contents to stdout as well
+  -V, --version         Print version and exit
+  -h, --help            Show this help
+
+EXAMPLES:
+  $PROGNAME
+  $PROGNAME source/dir/ dest/dir/
+EOF
+ else
+   echo "USAGE: $PROGNAME [SOURCE_DIR] [-v] [-V] [-h]" >&2
+   echo "Run '$PROGNAME --help' for full usage." >&2
+ fi
+}
+
+parse_args(){
+ while [[ $# -gt 0 ]]; do
+  case "$1" in
+   -v|--verbose)
+     VERBOSE=true
+     shift 
+     ;;
+   -V|--version)
+     echo "$PROGNAME $VERSION"
+     exit 0
+     ;;
+   -h|--help)
+     usage full
+     exit 0
+     ;;
+   -*)
+     echo "$PROGNAME: unknown option '$1'" >&2
+     usage
+     exit 1
+     ;;
+   *)
+     parse_args+=("$1")
+     shift
+     ;;
+ esac
+done
+
+INPUTDIR="${parse_args[0]}"
+
+if [[ -n "${POSITIONAL_ARGS[1]:-}" ]]; then
+    OUTDIR="${POSITIONAL_ARGS[1]}"
+fi
+
+if [[ -z "$INPUTDIR"  ]]; then
+   echo "ERROR: input directory is required."
+   usage
+   exit 1
+fi
+}
+
+compress_logs() {
+ 
+inputdir="$INPUTDIR"
+outdir="$OUTDIR"
+tar_file_name="${outdir}log_archive_$(date +%Y%m%d_%H%M%S).tar.gz"
+
+if [[ "$VERBOSE" == true ]]; then
+
+  tar -czvf "$tar_file_name" "$inputdir"
+else
+  tar -czf "$tar_file_name" "$inputdir"
+fi
+ echo "log archived to: $tar_file_name"
+}
+
+
+main() {
+  parse_args "$@"
+  compress_logs
+}
+
+main "$@"
